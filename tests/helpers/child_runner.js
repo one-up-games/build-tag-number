@@ -11,13 +11,19 @@ const opts = JSON.parse(process.argv[2]);
 const {
     actionMain,
     tags = 0,
+    tagsSequence = null,
     refsStatus = 200,
     createStatus = 201,
+    createStatusSequence = null,
     deleteStatus = 204,
     inputs = {},
     env = {},
     existingBuildNumberFile = null,
+    summaryTimeoutMs = 40,
 } = opts;
+
+let getCallCount = 0;
+let postCallCount = 0;
 
 let exitCode = null;
 const realExit = process.exit;
@@ -56,14 +62,21 @@ const stubHttps = {
             let body;
             if (method === 'GET') {
                 status = refsStatus;
+                const tagCount = tagsSequence
+                    ? tagsSequence[Math.min(getCallCount, tagsSequence.length - 1)]
+                    : tags;
+                getCallCount++;
                 if (refsStatus === 200) {
                     const prefix = inputs.prefix ? `${inputs.prefix}-` : '';
-                    body = Buffer.from(JSON.stringify(buildRefs(prefix, tags)));
+                    body = Buffer.from(JSON.stringify(buildRefs(prefix, tagCount)));
                 } else {
                     body = Buffer.from(JSON.stringify({ message: 'Not Found' }));
                 }
             } else if (method === 'POST') {
-                status = createStatus;
+                status = createStatusSequence
+                    ? createStatusSequence[Math.min(postCallCount, createStatusSequence.length - 1)]
+                    : createStatus;
+                postCallCount++;
                 body = Buffer.from(JSON.stringify({ ok: true }));
             } else if (method === 'DELETE') {
                 status = deleteStatus;
@@ -153,4 +166,4 @@ setTimeout(() => {
     process.stdout.write('\n' + JSON.stringify(summary) + '\n', () => {
         realExit.call(process, 0);
     });
-}, 40);
+}, summaryTimeoutMs);
