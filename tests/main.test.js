@@ -87,3 +87,44 @@ test('too many tags with delete_previous_tag=false does NOT fail', async () => {
     const deletes = r.http_calls.filter((c) => c.method === 'DELETE');
     assert.equal(deletes.length, 0, 'no refs should be deleted');
 });
+
+test('422 then 201: succeeds on second attempt with correct build number', async () => {
+    const r = await runAction({
+        createStatusSequence: [422, 201],
+        tagsSequence: [3, 4],
+        inputs: { prefix: 'client' },
+        env: { STUB_RETRY_DELAY_MAX_MS: '0' },
+        summaryTimeoutMs: 200,
+    });
+    assert.equal(r.exit_code, null);
+    assert.equal(r.build_number, 5);
+    const posts = r.http_calls.filter((c) => c.method === 'POST');
+    assert.equal(posts.length, 2);
+    assert.ok(posts[0].body.includes('refs/tags/client-build-number-4'));
+    assert.ok(posts[1].body.includes('refs/tags/client-build-number-5'));
+});
+
+test('two collisions then success: resolves after three attempts', async () => {
+    const r = await runAction({
+        createStatusSequence: [422, 422, 201],
+        tagsSequence: [3, 4, 5],
+        env: { STUB_RETRY_DELAY_MAX_MS: '0' },
+        summaryTimeoutMs: 200,
+    });
+    assert.equal(r.exit_code, null);
+    assert.equal(r.build_number, 6);
+    const posts = r.http_calls.filter((c) => c.method === 'POST');
+    assert.equal(posts.length, 3);
+});
+
+test('422 exhausted: fails with exit 1 after MAX_RETRY_ATTEMPTS collisions', async () => {
+    const r = await runAction({
+        createStatusSequence: [422, 422, 422, 422, 422],
+        tagsSequence: [1, 2, 3, 4, 5],
+        env: { STUB_RETRY_DELAY_MAX_MS: '0' },
+        summaryTimeoutMs: 200,
+    });
+    assert.equal(r.exit_code, 1);
+    const posts = r.http_calls.filter((c) => c.method === 'POST');
+    assert.equal(posts.length, 5);
+});
