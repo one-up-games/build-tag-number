@@ -107,11 +107,11 @@ function createRefWithRetry(prefix, number, nrTags, attempt, callback) {
             const delay = retryDelay(attempt);
             console.log(`Collision on ${prefix}build-number-${number} (attempt ${attempt}/${MAX_RETRY_ATTEMPTS}), re-reading in ${delay}ms...`);
             setTimeout(() => {
-                getMaxBuildNumber(prefix, (err2, newMax, newNrTags) => {
+                getMaxBuildNumber(prefix, (err2, newMax) => {
                     if (err2) { callback(err2); return; }
                     const next = newMax + 1;
                     console.log(`Re-read current max: ${newMax}. Retrying with build number ${next}...`);
-                    createRefWithRetry(prefix, next, newNrTags, attempt + 1, callback);
+                    createRefWithRetry(prefix, next, nrTags, attempt + 1, callback);
                 });
             }, delay);
             return;

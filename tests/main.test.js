@@ -102,6 +102,9 @@ test('422 then 201: succeeds on second attempt with correct build number', async
     assert.equal(posts.length, 2);
     assert.ok(posts[0].body.includes('refs/tags/client-build-number-4'));
     assert.ok(posts[1].body.includes('refs/tags/client-build-number-5'));
+    // Cleanup must not delete the competitor's tag (build-number-4); only the 3 pre-race tags.
+    const deletes = r.http_calls.filter((c) => c.method === 'DELETE');
+    assert.equal(deletes.length, 3);
 });
 
 test('two collisions then success: resolves after three attempts', async () => {
